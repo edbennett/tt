@@ -1,10 +1,20 @@
 from contextlib import contextmanager
-from datetime import date as dt_date, datetime, timedelta, timezone
+from datetime import date as dt_date
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import click
-
-from sqlalchemy import Column, ForeignKey, String, Integer, DateTime, and_, create_engine, or_, select
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    and_,
+    create_engine,
+    or_,
+    select,
+)
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 
 Base = declarative_base()
@@ -12,7 +22,7 @@ Base = declarative_base()
 
 class Stint(Base):
     __tablename__ = "stint"
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True) # noqa: A003
     start = Column(DateTime, nullable=False)
     end = Column(DateTime, nullable=False)
     project_id = Column(Integer, ForeignKey("project.id"), nullable=False)
@@ -23,7 +33,7 @@ class Stint(Base):
 
 class Project(Base):
     __tablename__ = "project"
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, primary_key=True) # noqa: A003
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
 
@@ -47,12 +57,18 @@ def session_scope(db_location):
 def combine_date_time(date, time):
     return datetime.combine(
         dt_date.fromisoformat(date),
-        datetime.strptime(time, "%H:%M:%S").time()
+        datetime.strptime(time, "%H:%M:%S").time(), # noqa: DTZ007
     ).astimezone()
 
 
+def today():
+    return datetime.now().astimezone().date()
+
+
 def get_project(session, project_name):
-    project = session.scalars(select(Project).where(Project.name == project_name)).one_or_none()
+    project = session.scalars(
+        select(Project).where(Project.name == project_name)
+    ).one_or_none()
     if not project:
         message = f"No such project {project_name}"
         raise ValueError(message)
@@ -61,7 +77,11 @@ def get_project(session, project_name):
 
 
 @click.group()
-@click.option("--db_location", default=Path.home() / ".local/state/tt/tt.sqlite", type=click.Path(path_type=Path))
+@click.option(
+    "--db_location",
+    default=Path.home() / ".local/state/tt/tt.sqlite",
+    type=click.Path(path_type=Path),
+)
 @click.pass_context
 def cli(ctx, db_location):
     ctx.ensure_object(dict)
@@ -69,7 +89,7 @@ def cli(ctx, db_location):
 
 
 @cli.command()
-@click.option("--date", default=dt_date.today().isoformat())
+@click.option("--date", default=today().isoformat())
 @click.option("--start_time", default=None)
 @click.option("--end_time", default="now")
 @click.option("--duration", default=None, type=float)
@@ -78,10 +98,21 @@ def cli(ctx, db_location):
 @click.option("--comment", default=None)
 @click.argument("description", nargs=-1, required=True)
 @click.pass_context
-def add(ctx, date, start_time, end_time, duration, project_name, new_project, comment, description):
+def add( # noqa: PLR0913
+    ctx,
+    date,
+    start_time,
+    end_time,
+    duration,
+    project_name,
+    new_project,
+    comment,
+    description,
+):
     if end_time == "now":
-        if date != dt_date.today().isoformat():
-            raise ValueError("If you specify a date, you have to specify a time")
+        if date != today().isoformat():
+            message = "If you specify a date, you have to specify a time"
+            raise ValueError(message)
         end_dt = datetime.now(timezone.utc)
     else:
         end_dt = combine_date_time(date, end_time)
@@ -91,7 +122,8 @@ def add(ctx, date, start_time, end_time, duration, project_name, new_project, co
     elif start_time is not None and duration is None:
         start_dt = combine_date_time(date, start_time)
     else:
-        raise ValueError("One of --start_time and --duration must be specified")
+        message = "One of --start_time and --duration must be specified"
+        raise ValueError(message)
 
     if new_project:
         with session_scope(ctx.obj["db_location"]) as session:
@@ -118,27 +150,29 @@ def date_limits(date):
 
 def stints_by_date(session, date):
     earliest, latest = date_limits(date)
-    stints = session.scalars(
-        select(Stint).where(or_(
-            and_(Stint.start > earliest, Stint.start < latest),
-            and_(Stint.end > earliest, Stint.end < latest),
-        ))
+    return session.scalars(
+        select(Stint).where(
+            or_(
+                and_(Stint.start > earliest, Stint.start < latest),
+                and_(Stint.end > earliest, Stint.end < latest),
+            )
+        )
     ).all()
-    return stints
 
 
 def hours_by_date(session, date):
     earliest, latest = date_limits(date)
     stints = stints_by_date(session, date)
     durations = [
-        min(latest, stint.end.astimezone(timezone.utc)) - max(earliest, stint.start.astimezone(timezone.utc))
+        min(latest, stint.end.astimezone(timezone.utc))
+        - max(earliest, stint.start.astimezone(timezone.utc))
         for stint in stints
     ]
     return sum(durations, start=timedelta(0)).total_seconds() / 3600
 
 
 @cli.command()
-@click.option("--date", default=dt_date.today().isoformat())
+@click.option("--date", default=today().isoformat())
 @click.pass_context
 def hours(ctx, date):
     with session_scope(ctx.obj["db_location"]) as session:
@@ -146,15 +180,23 @@ def hours(ctx, date):
 
 
 @cli.command()
-@click.option("--date", default=dt_date.today().isoformat())
+@click.option("--date", default=today().isoformat())
 @click.pass_context
-def list(ctx, date):
+def liststints(ctx, date):
     with session_scope(ctx.obj["db_location"]) as session:
         print(f"Stints for {date}")
         print("Start End   Dur. Project              Description")
         print("===== ===== ==== ==================== ============--..")
-        for stint in sorted(stints_by_date(session, date), key=lambda stint: stint.start):
-            print(f"{stint.start.strftime('%H:%M')} {stint.end.strftime('%H:%M')} {int((stint.end - stint.start).total_seconds() / 60):4} {stint.project.name:20} {stint.description}")
+        for stint in sorted(
+            stints_by_date(session, date), key=lambda stint: stint.start
+        ):
+            print(
+                f"{stint.start.strftime('%H:%M')} "
+                f"{stint.end.strftime('%H:%M')} "
+                f"{int((stint.end - stint.start).total_seconds() / 60):4} "
+                f"{stint.project.name:20} "
+                f"{stint.description}"
+            )
 
 
 if __name__ == "__main__":
