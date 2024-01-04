@@ -1,0 +1,7 @@
+#!/bin/bash
+
+SOURCE="${BASH_SOURCE[0]}"
+SCRIPT_DIRECTORY="$(cd "$(dirname "$SOURCE")" >/dev/null && pwd)"
+
+cd ${SCRIPT_DIRECTORY}
+pipenv run python tt.py $*
