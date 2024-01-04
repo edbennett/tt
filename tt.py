@@ -145,5 +145,17 @@ def hours(ctx, date):
         print(hours_by_date(session, date))
 
 
+@cli.command()
+@click.option("--date", default=dt_date.today().isoformat())
+@click.pass_context
+def list(ctx, date):
+    with session_scope(ctx.obj["db_location"]) as session:
+        print(f"Stints for {date}")
+        print("Start End   Dur. Project              Description")
+        print("===== ===== ==== ==================== ============--..")
+        for stint in sorted(stints_by_date(session, date), key=lambda stint: stint.start):
+            print(f"{stint.start.strftime('%H:%M')} {stint.end.strftime('%H:%M')} {int((stint.end - stint.start).total_seconds() / 60):4} {stint.project.name:20} {stint.description}")
+
+
 if __name__ == "__main__":
     cli(obj={})
