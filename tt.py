@@ -22,7 +22,7 @@ Base = declarative_base()
 
 class Stint(Base):
     __tablename__ = "stint"
-    id = Column(Integer, primary_key=True) # noqa: A003
+    id = Column(Integer, primary_key=True)  # noqa: A003
     start = Column(DateTime, nullable=False)
     end = Column(DateTime, nullable=False)
     project_id = Column(Integer, ForeignKey("project.id"), nullable=False)
@@ -33,7 +33,7 @@ class Stint(Base):
 
 class Project(Base):
     __tablename__ = "project"
-    id = Column(Integer, primary_key=True) # noqa: A003
+    id = Column(Integer, primary_key=True)  # noqa: A003
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
 
@@ -57,7 +57,7 @@ def session_scope(db_location):
 def combine_date_time(date, time):
     return datetime.combine(
         dt_date.fromisoformat(date),
-        datetime.strptime(time, "%H:%M:%S").time(), # noqa: DTZ007
+        datetime.strptime(time, "%H:%M:%S").time(),  # noqa: DTZ007
     ).astimezone()
 
 
@@ -98,7 +98,7 @@ def cli(ctx, db_location):
 @click.option("--comment", default=None)
 @click.argument("description", nargs=-1, required=True)
 @click.pass_context
-def add( # noqa: PLR0913
+def add(  # noqa: PLR0913
     ctx,
     date,
     start_time,
