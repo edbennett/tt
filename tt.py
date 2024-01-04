@@ -34,7 +34,7 @@ class Stint(Base):
 class Project(Base):
     __tablename__ = "project"
     id = Column(Integer, primary_key=True)  # noqa: A003
-    name = Column(String, nullable=False)
+    name = Column(String, nullable=False, unique=True)
     description = Column(String, nullable=True)
 
 
