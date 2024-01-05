@@ -12,6 +12,7 @@ from sqlalchemy import (
     String,
     and_,
     create_engine,
+    desc,
     or_,
     select,
 )
@@ -81,6 +82,14 @@ def get_project(session, project_name):
     return project
 
 
+def get_latest_stint(session):
+    return session.scalars(
+        select(Stint)
+        .where(Stint.end <= datetime.now(timezone.utc))
+        .order_by(desc(Stint.end))
+    ).first()
+
+
 @click.group()
 @click.option(
     "--db_location",
@@ -98,6 +107,7 @@ def cli(ctx, db_location):
 @click.option("--start_time", "--start", default=None)
 @click.option("--end_time", "--end", default="now")
 @click.option("--duration", default=None, type=float)
+@click.option("--since_last", is_flag=True, default=False)
 @click.option("--project_name", "--project", required=True)
 @click.option("--new_project", is_flag=True, default=False)
 @click.option("--comment", default=None)
@@ -109,6 +119,7 @@ def add(  # noqa: PLR0913
     start_time,
     end_time,
     duration,
+    since_last,
     project_name,
     new_project,
     comment,
@@ -122,13 +133,20 @@ def add(  # noqa: PLR0913
     else:
         end_dt = combine_date_time(date, end_time)
 
-    if duration is not None and start_time is None:
+    if sum([since_last, (duration is not None), (start_time is not None)]) != 1:
+        message = "One of --since_last, --start_time, and --duration must be specified"
+        raise ValueError(message)
+
+    if since_last:
+        with session_scope(ctx.obj["db_location"]) as session:
+            start_dt = get_latest_stint(session).end
+    elif duration is not None and start_time is None:
         start_dt = end_dt - timedelta(minutes=duration)
     elif start_time is not None and duration is None:
         start_dt = combine_date_time(date, start_time)
     else:
-        message = "One of --start_time and --duration must be specified"
-        raise ValueError(message)
+        message = "Unreachable code reached, open an issue"
+        raise RuntimeError(message)
 
     if new_project:
         with session_scope(ctx.obj["db_location"]) as session:
