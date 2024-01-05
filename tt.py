@@ -95,10 +95,10 @@ def cli(ctx, db_location):
 
 @cli.command()
 @click.option("--date", default=today().isoformat())
-@click.option("--start_time", default=None)
-@click.option("--end_time", default="now")
+@click.option("--start_time", "--start", default=None)
+@click.option("--end_time", "--end", default="now")
 @click.option("--duration", default=None, type=float)
-@click.option("--project_name", required=True)
+@click.option("--project_name", "--project", required=True)
 @click.option("--new_project", is_flag=True, default=False)
 @click.option("--comment", default=None)
 @click.argument("description", nargs=-1, required=True)
