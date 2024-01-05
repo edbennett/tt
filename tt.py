@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    TypeDecorator,
     and_,
     create_engine,
     desc,
@@ -21,11 +22,29 @@ from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 Base = declarative_base()
 
 
+class TimeStamp(TypeDecorator):
+    impl = DateTime
+    cache_ok = True
+
+    def process_bind_param(self, value: datetime, dialect):  # noqa: ARG002
+        if value.tzinfo is None:
+            message = "Can't put naive datetimes into the database"
+            raise ValueError(message)
+
+        return value.astimezone(timezone.utc)
+
+    def process_result_value(self, value, dialect):  # noqa: ARG002
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+
+        return value.astimezone(timezone.utc)
+
+
 class Stint(Base):
     __tablename__ = "stint"
     id = Column(Integer, primary_key=True)  # noqa: A003
-    start = Column(DateTime, nullable=False)
-    end = Column(DateTime, nullable=False)
+    start = Column(TimeStamp, nullable=False)
+    end = Column(TimeStamp, nullable=False)
     project_id = Column(Integer, ForeignKey("project.id"), nullable=False)
     project = relationship("Project")
     description = Column(String, nullable=False)
