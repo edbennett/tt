@@ -55,9 +55,14 @@ def session_scope(db_location):
 
 
 def combine_date_time(date, time):
+    try:
+        dt_time = datetime.strptime(time, "%H:%M:%S")  # noqa: DTZ007
+    except ValueError:
+        dt_time = datetime.strptime(time, "%H:%M")  # noqa: DTZ007
+
     return datetime.combine(
         dt_date.fromisoformat(date),
-        datetime.strptime(time, "%H:%M:%S").time(),  # noqa: DTZ007
+        dt_time.time(),
     ).astimezone()
 
 
