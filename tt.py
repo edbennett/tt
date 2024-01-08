@@ -58,6 +58,12 @@ class Project(Base):
     description = Column(String, nullable=True)
 
 
+class Mark(Base):
+    __tablename__ = "mark"
+    id = Column(Integer, primary_key=True)  # noqa: A003
+    when = Column(TimeStamp, nullable=False)
+
+
 @contextmanager
 def session_scope(db_location):
     engine = create_engine(db_location)
@@ -109,6 +115,14 @@ def get_latest_stint(session):
     ).first()
 
 
+def get_latest_mark(session):
+    return session.scalars(
+        select(Mark)
+        .where(Mark.when > get_latest_stint(session).end)
+        .order_by(desc(Mark.when))
+    ).first()
+
+
 @click.group()
 @click.option(
     "--db_location",
@@ -127,18 +141,20 @@ def cli(ctx, db_location):
 @click.option("--end_time", "--end", default="now")
 @click.option("--duration", default=None, type=float)
 @click.option("--since_last", is_flag=True, default=False)
+@click.option("--since_mark", is_flag=False, flag_value=True, default=False)
 @click.option("--project_name", "--project", required=True)
 @click.option("--new_project", is_flag=True, default=False)
 @click.option("--comment", default=None)
 @click.argument("description", nargs=-1, required=True)
 @click.pass_context
-def add(  # noqa: PLR0913
+def add(  # noqa: PLR0913, C901
     ctx,
     date,
     start_time,
     end_time,
     duration,
     since_last,
+    since_mark,
     project_name,
     new_project,
     comment,
@@ -152,8 +168,14 @@ def add(  # noqa: PLR0913
     else:
         end_dt = combine_date_time(date, end_time)
 
-    if sum([since_last, (duration is not None), (start_time is not None)]) != 1:
-        message = "One of --since_last, --start_time, and --duration must be specified"
+    if (
+        sum([since_last, (duration is not None), (start_time is not None), since_mark])
+        != 1
+    ):
+        message = (
+            "One of --since_last, --since_mark, --start_time, and --duration "
+            "must be specified"
+        )
         raise ValueError(message)
 
     if since_last:
@@ -164,8 +186,21 @@ def add(  # noqa: PLR0913
     elif start_time is not None and duration is None:
         start_dt = combine_date_time(date, start_time)
     else:
-        message = "Unreachable code reached, open an issue"
-        raise RuntimeError(message)
+        if not since_mark:
+            message = "Unreachable code reached, open an issue"
+            raise RuntimeError(message)
+        with session_scope(ctx.obj["db_location"]) as session:
+            mark = get_latest_mark(session)
+            start_dt = mark.when
+            if (
+                datetime.now(timezone.utc) - start_dt > timedelta(hours=12)
+                and since_mark != "force"
+            ):
+                message = (
+                    f"Not using mark as it is old ({start_dt}). "
+                    "Pass --since_mark=force to override."
+                )
+                raise ValueError(message)
 
     if new_project:
         with session_scope(ctx.obj["db_location"]) as session:
@@ -182,6 +217,8 @@ def add(  # noqa: PLR0913
             comment=comment,
         )
         session.add(stint)
+        if since_mark:
+            session.delete(mark)
 
 
 def date_limits(date):
@@ -239,6 +276,14 @@ def liststints(ctx, date):
                 f"{stint.project.name:20} "
                 f"{stint.description}"
             )
+
+
+@cli.command()
+@click.pass_context
+def mark(ctx):
+    with session_scope(ctx.obj["db_location"]) as session:
+        mark = Mark(when=datetime.now(timezone.utc))
+        session.add(mark)
 
 
 if __name__ == "__main__":
