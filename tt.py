@@ -2,11 +2,14 @@ from contextlib import contextmanager
 from datetime import date as dt_date
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from time import sleep
 
 import click
+import CoreLocation
 from sqlalchemy import (
     Column,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -49,6 +52,8 @@ class Stint(Base):
     project = relationship("Project")
     description = Column(String, nullable=False)
     comment = Column(String, nullable=True)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
 
 
 class Project(Base):
@@ -121,6 +126,18 @@ def get_latest_mark(session):
         .where(Mark.when > get_latest_stint(session).end)
         .order_by(desc(Mark.when))
     ).first()
+
+
+def get_location():
+    time_for_location_manager_to_warm_up = 0.01
+    location_manager = CoreLocation.CLLocationManager.new()
+    location_manager.requestWhenInUseAuthorization()
+    sleep(time_for_location_manager_to_warm_up)
+    location = location_manager.location()
+    if not location:
+        return None, None
+    coordinate = location.coordinate()
+    return coordinate.latitude, coordinate.longitude
 
 
 @click.group()
@@ -207,6 +224,7 @@ def add(  # noqa: PLR0913, C901
             project = Project(name=project_name)
             session.add(project)
 
+    latitude, longitude = get_location()
     with session_scope(ctx.obj["db_location"]) as session:
         project = get_project(session, project_name)
         stint = Stint(
@@ -215,6 +233,8 @@ def add(  # noqa: PLR0913, C901
             project_id=project.id,
             description=" ".join(description),
             comment=comment,
+            latitude=latitude,
+            longitude=longitude,
         )
         session.add(stint)
         if since_mark:
