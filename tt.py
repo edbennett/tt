@@ -121,11 +121,15 @@ def get_latest_stint(session):
 
 
 def get_latest_mark(session):
-    return session.scalars(
+    mark = session.scalars(
         select(Mark)
         .where(Mark.when > get_latest_stint(session).end)
         .order_by(desc(Mark.when))
     ).first()
+    if not mark:
+        message = "No marks available."
+        raise ValueError(message)
+    return mark
 
 
 def get_location():
