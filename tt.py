@@ -45,7 +45,7 @@ class TimeStamp(TypeDecorator):
 
 class Stint(Base):
     __tablename__ = "stint"
-    id = Column(Integer, primary_key=True)  # noqa: A003
+    id = Column(Integer, primary_key=True)
     start = Column(TimeStamp, nullable=False)
     end = Column(TimeStamp, nullable=False)
     project_id = Column(Integer, ForeignKey("project.id"), nullable=False)
@@ -58,14 +58,14 @@ class Stint(Base):
 
 class Project(Base):
     __tablename__ = "project"
-    id = Column(Integer, primary_key=True)  # noqa: A003
+    id = Column(Integer, primary_key=True)
     name = Column(String, nullable=False, unique=True)
     description = Column(String, nullable=True)
 
 
 class Mark(Base):
     __tablename__ = "mark"
-    id = Column(Integer, primary_key=True)  # noqa: A003
+    id = Column(Integer, primary_key=True)
     when = Column(TimeStamp, nullable=False)
 
 
