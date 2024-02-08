@@ -287,12 +287,36 @@ def hours_by_date(session, date):
     return sum(durations, start=timedelta(0)).total_seconds() / 3600
 
 
+def date_range(start, end):
+    start_date = dt_date.fromisoformat(start)
+    end_date = dt_date.fromisoformat(end)
+    return [
+        (start_date + timedelta(n)).isoformat()
+        for n in range(int((end_date - start_date).days))
+    ]
+
+
 @cli.command()
 @click.option("--date", default=today().isoformat())
+@click.option("--start_date", default=None)
+@click.option("--end_date", default=None)
 @click.pass_context
-def hours(ctx, date):
+def hours(ctx, date, start_date, end_date):
+    if (start_date and not end_date) or (end_date and not start_date):
+        message = (
+            "Either both --start_date and --end_date should be specified, or neither"
+        )
+        raise ValueError(message)
+    if (date != today().isoformat()) and start_date:
+        message = "Only one of --date and (--start_date + --end_date) can be specified."
+        raise ValueError(message)
+
     with session_scope(ctx.obj["db_location"]) as session:
-        print(hours_by_date(session, date))
+        if not start_date:
+            print(hours_by_date(session, date))
+        else:
+            for target_date in date_range(start_date, end_date):
+                print(f"{target_date} {hours_by_date(session, target_date):.01f}")
 
 
 @cli.command()
