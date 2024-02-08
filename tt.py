@@ -161,8 +161,8 @@ def cli(ctx, db_location):
 @click.option("--start_time", "--start", default=None)
 @click.option("--end_time", "--end", default="now")
 @click.option("--duration", default=None, type=float)
-@click.option("--since_last", is_flag=True, default=False)
-@click.option("--since_mark", is_flag=False, flag_value=True, default=False)
+@click.option("--since_last", is_flag=False, flag_value="yes", default=None)
+@click.option("--since_mark", is_flag=False, flag_value="yes", default=None)
 @click.option("--project_name", "--project", required=True)
 @click.option("--new_project", is_flag=True, default=False)
 @click.option("--comment", default=None)
@@ -190,7 +190,14 @@ def add(  # noqa: PLR0913, C901
         end_dt = combine_date_time(date, end_time)
 
     if (
-        sum([since_last, (duration is not None), (start_time is not None), since_mark])
+        sum(
+            [
+                (since_last is not None),
+                (duration is not None),
+                (start_time is not None),
+                (since_mark is not None),
+            ]
+        )
         != 1
     ):
         message = (
@@ -202,6 +209,12 @@ def add(  # noqa: PLR0913, C901
     if since_last:
         with session_scope(ctx.obj["db_location"]) as session:
             start_dt = get_latest_stint(session).end
+        if end_dt - start_dt > timedelta(hours=2) and since_last != "force":
+            message = (
+                f"Not using last as it is old ({start_dt}). "
+                "Pass --since_last=force to override."
+            )
+            raise ValueError(message)
     elif duration is not None and start_time is None:
         start_dt = end_dt - timedelta(minutes=duration)
     elif start_time is not None and duration is None:
