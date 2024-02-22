@@ -331,8 +331,8 @@ def liststints(ctx, date):
             stints_by_date(session, date), key=lambda stint: stint.start
         ):
             print(
-                f"{stint.start.strftime('%H:%M')} "
-                f"{stint.end.strftime('%H:%M')} "
+                f"{stint.start.astimezone().strftime('%H:%M')} "
+                f"{stint.end.astimezone().strftime('%H:%M')} "
                 f"{int((stint.end - stint.start).total_seconds() / 60):4} "
                 f"{stint.project.name:20} "
                 f"{stint.description}"
