@@ -1,6 +1,6 @@
 from contextlib import contextmanager
+from datetime import UTC, datetime, timedelta
 from datetime import date as dt_date
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from time import sleep
 
@@ -34,13 +34,13 @@ class TimeStamp(TypeDecorator):
             message = "Can't put naive datetimes into the database"
             raise ValueError(message)
 
-        return value.astimezone(timezone.utc)
+        return value.astimezone(UTC)
 
     def process_result_value(self, value, dialect):  # noqa: ARG002
         if value.tzinfo is None:
-            return value.replace(tzinfo=timezone.utc)
+            return value.replace(tzinfo=UTC)
 
-        return value.astimezone(timezone.utc)
+        return value.astimezone(UTC)
 
 
 class Stint(Base):
@@ -114,9 +114,7 @@ def get_project(session, project_name):
 
 def get_latest_stint(session):
     return session.scalars(
-        select(Stint)
-        .where(Stint.end <= datetime.now(timezone.utc))
-        .order_by(desc(Stint.end))
+        select(Stint).where(Stint.end <= datetime.now(UTC)).order_by(desc(Stint.end))
     ).first()
 
 
@@ -185,7 +183,7 @@ def add(  # noqa: PLR0913, C901
         if date != today().isoformat():
             message = "If you specify a date, you have to specify a time"
             raise ValueError(message)
-        end_dt = datetime.now(timezone.utc)
+        end_dt = datetime.now(UTC)
     else:
         end_dt = combine_date_time(date, end_time)
 
@@ -227,7 +225,7 @@ def add(  # noqa: PLR0913, C901
             mark = get_latest_mark(session)
             start_dt = mark.when
             if (
-                datetime.now(timezone.utc) - start_dt > timedelta(hours=12)
+                datetime.now(UTC) - start_dt > timedelta(hours=12)
                 and since_mark != "force"
             ):
                 message = (
@@ -245,8 +243,8 @@ def add(  # noqa: PLR0913, C901
     with session_scope(ctx.obj["db_location"]) as session:
         project = get_project(session, project_name)
         stint = Stint(
-            start=start_dt.astimezone(timezone.utc),
-            end=end_dt.astimezone(timezone.utc),
+            start=start_dt.astimezone(UTC),
+            end=end_dt.astimezone(UTC),
             project_id=project.id,
             description=" ".join(description),
             comment=comment,
@@ -260,8 +258,8 @@ def add(  # noqa: PLR0913, C901
 
 def date_limits(date):
     earliest = combine_date_time(date, "0:00:00")
-    latest = (earliest + timedelta(days=1)).astimezone(timezone.utc)
-    return earliest.astimezone(timezone.utc), latest
+    latest = (earliest + timedelta(days=1)).astimezone(UTC)
+    return earliest.astimezone(UTC), latest
 
 
 def stints_by_date(session, date):
@@ -280,8 +278,8 @@ def hours_by_date(session, date):
     earliest, latest = date_limits(date)
     stints = stints_by_date(session, date)
     durations = [
-        min(latest, stint.end.astimezone(timezone.utc))
-        - max(earliest, stint.start.astimezone(timezone.utc))
+        min(latest, stint.end.astimezone(UTC))
+        - max(earliest, stint.start.astimezone(UTC))
         for stint in stints
     ]
     return sum(durations, start=timedelta(0)).total_seconds() / 3600
@@ -343,7 +341,7 @@ def liststints(ctx, date):
 @click.pass_context
 def mark(ctx):
     with session_scope(ctx.obj["db_location"]) as session:
-        mark = Mark(when=datetime.now(timezone.utc))
+        mark = Mark(when=datetime.now(UTC))
         session.add(mark)
 
 
